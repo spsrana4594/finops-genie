@@ -114,8 +114,16 @@ dashboard/import_dashboard.py         optional one-command import
 genie/finops_genie.geniespace.json    Genie space (recommendations-first)
 genie/import_genie.py                 Genie import (no UI file-import exists)
 knowledge/                            10 best-practice guides + policy template + SETUP_KA.md
+deck/FinOps-Genie-DAIS2026.pptx       the DAIS 2026 talk deck (the story behind this repo)
 README.md · LICENSE · .gitignore
 ```
+
+## 🎤 The talk & going further
+
+- 📊 **DAIS 2026 talk deck:** [`deck/FinOps-Genie-DAIS2026.pptx`](deck/FinOps-Genie-DAIS2026.pptx) — the full story behind this repo (from cost *observability* to *action* at a 1,000+ workspace bank).
+- 🌩️ **Get the _full_ cost picture (Databricks + cloud infrastructure).** FinOps Genie covers your **Databricks (DBU)** spend from system tables — it intentionally does **not** include the underlying **cloud-infrastructure** costs (EC2/VMs, storage, egress). To unify both, pair it with the Databricks solution *Unifying Databricks and cloud infrastructure costs*:
+  - 📝 Blog: [Getting the full picture](https://www.databricks.com/blog/getting-full-picture-unifying-databricks-and-cloud-infrastructure-costs)
+  - 💻 Companion repo: [`databricks-solutions/cloud-infra-costs`](https://github.com/databricks-solutions/cloud-infra-costs) — solution architectures for [**AWS**](https://github.com/databricks-solutions/cloud-infra-costs/tree/main/aws) and [**Azure**](https://github.com/databricks-solutions/cloud-infra-costs/tree/main/azure)
 
 ## 🐘 Advanced (very large accounts)
 
