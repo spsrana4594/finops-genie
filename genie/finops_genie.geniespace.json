@@ -1,0 +1,396 @@
+{
+  "version": 2,
+  "config": {
+    "sample_questions": [
+      {
+        "id": "0de7fd5872507cf87df08d5db051f900",
+        "question": [
+          "How does spend split between serverless and classic compute?"
+        ]
+      },
+      {
+        "id": "12627b9edbd9c40e49a3e814717f6d9d",
+        "question": [
+          "What are our top optimization recommendations by savings?"
+        ]
+      },
+      {
+        "id": "24b98b42da012354d33ad36241fb54b7",
+        "question": [
+          "How much did we pay for failed job runs in the last 30 days?"
+        ]
+      },
+      {
+        "id": "24db7588e4519ec599cd0e659be5eb7c",
+        "question": [
+          "Rank all teams by efficiency score from best to worst."
+        ]
+      },
+      {
+        "id": "2900a4db8a3cc7719c8080a866c13a57",
+        "question": [
+          "Which clusters are 2 or more DBR LTS versions behind, and what is the upgrade SLA?"
+        ]
+      },
+      {
+        "id": "2bca55e2623c90721840c4566d3f5d6c",
+        "question": [
+          "Which unused tables can we de-commission, and which need predictive optimization?"
+        ]
+      },
+      {
+        "id": "2d675f604d7095517143243215f95a88",
+        "question": [
+          "What did we spend in the last 30 days, broken down by line of business?"
+        ]
+      },
+      {
+        "id": "44f507ad6621a03856b114c70f30ad02",
+        "question": [
+          "Which clusters run below 15% average CPU and how much do they cost?"
+        ]
+      },
+      {
+        "id": "49b399121ba8daad4946e55713ac62a3",
+        "question": [
+          "Which teams have the most addressable savings?"
+        ]
+      },
+      {
+        "id": "5cca10069faf04249eecba0a65517f0c",
+        "question": [
+          "Which SQL warehouses never auto-stop (policy violation), and what should they be set to?"
+        ]
+      },
+      {
+        "id": "66f537bc0d946a70bbdf5f6702a7a531",
+        "question": [
+          "What should our highest-spend team fix first, and how much would it save?"
+        ]
+      },
+      {
+        "id": "695140cf13c43d081b3d0dc598b8c31d",
+        "question": [
+          "Where is the biggest savings opportunity, by lever (reduce waste / rightsize / optimize)?"
+        ]
+      },
+      {
+        "id": "87385854ff3c0f7e8712482f6d2cb79a",
+        "question": [
+          "Which jobs are running on all-purpose compute instead of job compute?"
+        ]
+      },
+      {
+        "id": "89340704dc2f42dbfa9528cc0bf2a80f",
+        "question": [
+          "What is our spend by SKU over the last 90 days?"
+        ]
+      },
+      {
+        "id": "9cefbee1d0f137b1fb92093a8a20bd67",
+        "question": [
+          "Which teams are wasting the most money, and what is the waste made of?"
+        ]
+      },
+      {
+        "id": "b93adc405328aedb67054902b61d3a5c",
+        "question": [
+          "Which teams are below our efficiency-score target and need a FinOps review?"
+        ]
+      },
+      {
+        "id": "b9fa99b43621035da92b3f6cfbc417da",
+        "question": [
+          "What are the top optimization recommendations across the estate, with estimated savings?"
+        ]
+      },
+      {
+        "id": "c0fe22b920d89150aaa654635d2c29e2",
+        "question": [
+          "Show the daily spend trend for the last 90 days by compute type."
+        ]
+      },
+      {
+        "id": "c1e12e6feb00e8b645bfe986b08155d6",
+        "question": [
+          "How much are we losing to idle SQL warehouses, by team?"
+        ]
+      }
+    ]
+  },
+  "data_sources": {
+    "tables": [
+      {
+        "identifier": "system.access.workspaces_latest"
+      },
+      {
+        "identifier": "system.billing.list_prices"
+      },
+      {
+        "identifier": "system.billing.usage"
+      },
+      {
+        "identifier": "system.compute.clusters"
+      },
+      {
+        "identifier": "system.compute.node_timeline"
+      },
+      {
+        "identifier": "system.compute.warehouse_events"
+      },
+      {
+        "identifier": "system.compute.warehouses"
+      },
+      {
+        "identifier": "system.lakeflow.job_run_timeline"
+      },
+      {
+        "identifier": "system.lakeflow.jobs"
+      },
+      {
+        "identifier": "system.query.history"
+      }
+    ]
+  },
+  "instructions": {
+    "text_instructions": [
+      {
+        "id": "865c0c0b4ab0e063e5caa3387c1a8741",
+        "content": [
+          "OPTIMIZATION-FIRST: this space leads with actionable, team-tagged recommendations across three levers - Reduce waste (idle clusters/warehouses, failing jobs, unused/zombie warehouses, over-frequent jobs, de-commission unused tables), Rightsize infra (oversized warehouses, right-size VM/instance, jobs-on-all-purpose, spot, autoscaling), and Optimize data & code (high query spill, outdated runtime, enable predictive optimization, compact small files - route code/query tuning to the Genie + Assistant). For 'what should team X fix' or 'biggest savings', compute the relevant signal grouped by team (lob/sub_division/team) and order by estimated monthly savings. This Genie space answers FinOps questions (cost, waste, compute efficiency, policy) for a Databricks estate using ONLY Databricks system tables (no views, no materialized tables).Conventions: money is USD = usage_quantity * list_prices.pricing.default (join system.billing.list_prices on sku_name + usage_unit with usage_end_time within [price_start_time, price_end_time)). Default the window to the last 30 days; for relative windows use only a lower bound (usage_date >= date_add(current_date(),-N)); usage data has no future dates.Org hierarchy: Line of Business (lob) > Sub-division > Team > Workspace. Derive lob/sub_division/team/environment from system.billing.usage.custom_tags (e.g. custom_tags['lob']); coalesce missing to 'Untagged'. See the org CTE in the example SQLs.Waste = idle compute cost + warehouse idle cost + failed-job cost. Efficiency score is spend-relative: 100 - waste/spend% (higher is better). Idle cluster cost ~ cost * (1 - min(avg_cpu,50)/50) using system.compute.node_timeline. Idle warehouse cost ~ cost * (1 - query_exec_seconds/running_seconds) from system.compute.warehouse_events + system.query.history. Jobs-on-all-purpose: system.lakeflow.job_run_timeline.compute_ids joined to system.compute.clusters where cluster_source not in ('JOB').Key tables: system.billing.usage (+ list_prices) for spend; system.compute.clusters/node_timeline for cluster util; system.compute.warehouses/warehouse_events + system.query.history for warehouse idle/spills; system.lakeflow.job_run_timeline/jobs for jobs. The example SQLs below show the exact join patterns - follow them.POLICY (example - adjust): cluster auto_termination_minutes <= 15 (prod)/10 (dev); SQL warehouse auto-stop <= 10 min, never-auto-stop is a violation; spot-with-fallback on eligible batch; DBR within 2 LTS; scheduled jobs on job compute not all-purpose; efficiency target >= 80, waste <= 10% of spend.SCOPE: answer cost/spend/waste/efficiency/optimization/policy. Decline per-query/per-statement cost and cloud VM/storage cost (not in DBU billing) and point to Query History / the cloud cost tool."
+        ]
+      }
+    ],
+    "example_question_sqls": [
+      {
+        "id": "0b94d325937a0f145dffd60f69761cb1",
+        "question": [
+          "What are the top optimization recommendations, with estimated savings?"
+        ],
+        "sql": [
+          "WITH org AS (\n",
+          "  SELECT t.workspace_id,\n",
+          "         coalesce(w.workspace_name, concat('ws-', t.workspace_id)) AS workspace_name,\n",
+          "         coalesce(t.lob,'Untagged') AS lob, coalesce(t.sub_division,'Untagged') AS sub_division,\n",
+          "         coalesce(t.team,'Untagged') AS team, coalesce(t.environment,'Unknown') AS environment\n",
+          "  FROM (SELECT workspace_id, max(custom_tags['lob']) lob, max(custom_tags['sub_division']) sub_division,\n",
+          "               max(custom_tags['team']) team, max(custom_tags['environment']) environment\n",
+          "        FROM system.billing.usage WHERE usage_date>=current_date()-90 AND workspace_id IS NOT NULL GROUP BY workspace_id) t\n",
+          "  LEFT JOIN system.access.workspaces_latest w USING (workspace_id)\n",
+          "),\n",
+          "priced AS (\n",
+          "  SELECT u.usage_date, date_trunc('MONTH',u.usage_date) AS usage_month, u.workspace_id,\n",
+          "    o.workspace_name, o.lob, o.sub_division, o.team, o.environment, u.sku_name, u.billing_origin_product,\n",
+          "    CASE WHEN u.billing_origin_product='ALL_PURPOSE' THEN 'All-Purpose Compute'\n",
+          "         WHEN u.billing_origin_product='JOBS' THEN 'Job Compute'\n",
+          "         WHEN u.billing_origin_product='DLT' THEN 'Lakeflow / DLT'\n",
+          "         WHEN u.billing_origin_product='SQL' THEN 'SQL Warehouse'\n",
+          "         WHEN u.billing_origin_product IN ('MODEL_SERVING','AI_GATEWAY','AI_FUNCTIONS','AI_RUNTIME','VECTOR_SEARCH','AGENT_BRICKS','AGENT_EVALUATION','SUPERVISOR_AGENT') THEN 'AI / ML'\n",
+          "         WHEN u.billing_origin_product='INTERACTIVE' THEN 'Serverless Interactive'\n",
+          "         WHEN u.billing_origin_product IN ('LAKEBASE','DATABASE','ONLINE_TABLES') THEN 'Lakebase / OLTP'\n",
+          "         ELSE 'Platform / Other' END AS compute_type,\n",
+          "    u.usage_metadata.cluster_id AS cluster_id, u.usage_metadata.job_id AS job_id, u.usage_metadata.warehouse_id AS warehouse_id,\n",
+          "    u.product_features.is_serverless AS is_serverless, u.usage_quantity,\n",
+          "    u.usage_quantity * try_cast(lp.pricing.default AS double) AS cost_usd\n",
+          "  FROM system.billing.usage u\n",
+          "  JOIN org o ON u.workspace_id=o.workspace_id\n",
+          "  LEFT JOIN system.billing.list_prices lp ON u.sku_name=lp.sku_name AND u.usage_unit=lp.usage_unit\n",
+          "       AND u.usage_end_time>=lp.price_start_time AND (lp.price_end_time IS NULL OR u.usage_end_time<lp.price_end_time)\n",
+          "  WHERE u.workspace_id IS NOT NULL\n",
+          "),\n",
+          "cl_latest AS (SELECT * FROM (SELECT *, row_number() OVER (PARTITION BY workspace_id,cluster_id ORDER BY change_time DESC) rn FROM system.compute.clusters) WHERE rn=1),\n",
+          "node_util AS (SELECT workspace_id,cluster_id,date(start_time) d, avg(cpu_user_percent+cpu_system_percent) avg_cpu_pct, avg(mem_used_percent) avg_mem_pct, max(mem_used_percent) peak_mem_pct, count(*) node_minutes FROM system.compute.node_timeline WHERE start_time>=current_date()-INTERVAL 65 DAYS GROUP BY 1,2,3),\n",
+          "clu_cost AS (SELECT workspace_id,cluster_id,usage_date d, sum(cost_usd) cost_usd FROM priced WHERE cluster_id IS NOT NULL AND usage_date>=current_date()-INTERVAL 65 DAYS GROUP BY 1,2,3),\n",
+          "clu AS (\n",
+          "  SELECT o.lob,o.sub_division,o.team,o.workspace_name,o.environment,\n",
+          "    coalesce(nu.workspace_id,cc.workspace_id) workspace_id, coalesce(nu.cluster_id,cc.cluster_id) cluster_id,\n",
+          "    cl.cluster_name, cl.cluster_source, coalesce(nu.d,cc.d) d,\n",
+          "    nu.avg_cpu_pct, nu.avg_mem_pct, nu.peak_mem_pct, nu.node_minutes, coalesce(cc.cost_usd,0) cost_usd, cl.dbr_version,\n",
+          "    greatest(0, 17 - try_cast(split(regexp_extract(cl.dbr_version,'(\\\\d+\\\\.\\\\d+)',1),'\\\\.')[0] AS INT)) major_versions_behind,\n",
+          "    (cl.aws_attributes.availability LIKE 'SPOT%') is_spot, cl.auto_termination_minutes, cl.min_autoscale_workers, cl.max_autoscale_workers,\n",
+          "    CASE WHEN nu.avg_cpu_pct IS NOT NULL THEN coalesce(cc.cost_usd,0)*(1-least(nu.avg_cpu_pct,50)/50.0) ELSE 0 END idle_cpu_cost_usd\n",
+          "  FROM node_util nu FULL OUTER JOIN clu_cost cc USING (workspace_id,cluster_id,d)\n",
+          "  LEFT JOIN cl_latest cl ON cl.workspace_id=coalesce(nu.workspace_id,cc.workspace_id) AND cl.cluster_id=coalesce(nu.cluster_id,cc.cluster_id)\n",
+          "  LEFT JOIN org o ON o.workspace_id=coalesce(nu.workspace_id,cc.workspace_id)\n",
+          "),\n",
+          "wh_latest AS (SELECT * FROM (SELECT warehouse_id,workspace_id,warehouse_name,warehouse_type,warehouse_size,min_clusters,max_clusters,auto_stop_minutes, row_number() OVER (PARTITION BY warehouse_id ORDER BY change_time DESC) rn FROM system.compute.warehouses) WHERE rn=1),\n",
+          "wh_ev AS (SELECT warehouse_id,date(event_time) d, sum(CASE WHEN event_type NOT IN ('STOPPED','STOPPING') THEN timestampdiff(SECOND,event_time,next_time) ELSE 0 END) running_seconds FROM (SELECT warehouse_id,event_type,event_time, lead(event_time) OVER (PARTITION BY warehouse_id ORDER BY event_time) next_time FROM system.compute.warehouse_events WHERE event_time>=current_date()-INTERVAL 65 DAYS) WHERE next_time IS NOT NULL AND date(event_time)=date(next_time) GROUP BY 1,2),\n",
+          "wh_q AS (SELECT compute.warehouse_id warehouse_id,date(start_time) d, count(*) query_count, sum(execution_duration_ms)/1000.0 exec_seconds, sum(spilled_local_bytes)/1e9 spilled_gb, sum(CASE WHEN execution_status='FAILED' THEN 1 ELSE 0 END) failed_queries FROM system.query.history WHERE start_time>=current_date()-INTERVAL 65 DAYS AND compute.warehouse_id IS NOT NULL GROUP BY 1,2),\n",
+          "wh_cost AS (SELECT warehouse_id,usage_date d, sum(cost_usd) cost_usd FROM priced WHERE warehouse_id IS NOT NULL AND usage_date>=current_date()-INTERVAL 65 DAYS GROUP BY 1,2),\n",
+          "whe AS (\n",
+          "  SELECT o.lob,o.sub_division,o.team,o.workspace_name,o.environment, wl.workspace_id, c.warehouse_id, wl.warehouse_name, wl.warehouse_type, wl.warehouse_size,\n",
+          "    wl.auto_stop_minutes, (coalesce(wl.auto_stop_minutes,0)=0) never_auto_stops, c.d, coalesce(c.cost_usd,0) cost_usd,\n",
+          "    e.running_seconds, q.query_count, q.exec_seconds, coalesce(q.spilled_gb,0) spilled_gb, coalesce(q.failed_queries,0) failed_queries,\n",
+          "    least(1.0, coalesce(q.exec_seconds,0)/nullif(e.running_seconds,0)) utilization,\n",
+          "    coalesce(c.cost_usd,0)*(1-least(1.0, coalesce(q.exec_seconds,0)/nullif(e.running_seconds,0))) idle_cost_usd\n",
+          "  FROM wh_cost c LEFT JOIN wh_ev e ON e.warehouse_id=c.warehouse_id AND e.d=c.d\n",
+          "  LEFT JOIN wh_q q ON q.warehouse_id=c.warehouse_id AND q.d=c.d\n",
+          "  LEFT JOIN wh_latest wl ON wl.warehouse_id=c.warehouse_id\n",
+          "  LEFT JOIN org o ON o.workspace_id=wl.workspace_id\n",
+          "),\n",
+          "job_cl AS (SELECT workspace_id,cluster_id,cluster_source FROM (SELECT workspace_id,cluster_id,cluster_source, row_number() OVER (PARTITION BY workspace_id,cluster_id ORDER BY change_time DESC) rn FROM system.compute.clusters) WHERE rn=1),\n",
+          "job_runs AS (SELECT workspace_id,job_id,run_id,date(period_start_time) d,result_state,compute_ids FROM system.lakeflow.job_run_timeline WHERE period_start_time>=current_date()-INTERVAL 65 DAYS),\n",
+          "job_apc AS (SELECT r.workspace_id,r.job_id,r.d,r.run_id, max(CASE WHEN coalesce(c.cluster_source,'') NOT IN ('JOB','') THEN 1 ELSE 0 END) used_apc, max(CASE WHEN r.result_state IN ('FAILED','ERROR','TIMED_OUT') THEN 1 ELSE 0 END) failed FROM job_runs r LEFT JOIN LATERAL explode(r.compute_ids) AS t(cid) LEFT JOIN job_cl c ON c.workspace_id=r.workspace_id AND c.cluster_id=t.cid GROUP BY 1,2,3,4),\n",
+          "job_day AS (SELECT workspace_id,job_id,d, count(*) runs, sum(failed) failed_runs, max(used_apc) ran_on_apc FROM job_apc GROUP BY 1,2,3),\n",
+          "job_cost AS (SELECT workspace_id,job_id,usage_date d, sum(cost_usd) job_cost_usd FROM priced WHERE job_id IS NOT NULL AND usage_date>=current_date()-INTERVAL 65 DAYS GROUP BY 1,2,3),\n",
+          "jobe AS (\n",
+          "  SELECT o.lob,o.sub_division,o.team,o.workspace_name,o.environment, coalesce(jd.workspace_id,jc.workspace_id) workspace_id, coalesce(jd.job_id,jc.job_id) job_id, coalesce(jd.d,jc.d) d,\n",
+          "    coalesce(jd.runs,0) runs, coalesce(jd.failed_runs,0) failed_runs, coalesce(jd.ran_on_apc,0) ran_on_apc, coalesce(jc.job_cost_usd,0) job_cost_usd,\n",
+          "    CASE WHEN coalesce(jd.failed_runs,0)>0 THEN coalesce(jc.job_cost_usd,0) ELSE 0 END failed_cost_usd\n",
+          "  FROM job_day jd FULL OUTER JOIN job_cost jc USING (workspace_id,job_id,d)\n",
+          "  LEFT JOIN org o ON o.workspace_id=coalesce(jd.workspace_id,jc.workspace_id)\n",
+          ")\n",
+          "SELECT *, CASE WHEN est_monthly_savings>=5000 THEN 'High' WHEN est_monthly_savings>=500 THEN 'Medium' ELSE 'Low' END severity FROM (\n",
+          "    SELECT lob,sub_division,team,workspace_name,workspace_id,'Underutilized compute' category,'Right-size or enable autoscaling on clusters averaging low CPU' recommendation, round(sum(idle_cpu_cost_usd)) est_monthly_savings, concat(count(DISTINCT cluster_id),' clusters, avg CPU ',round(avg(avg_cpu_pct),0),'%') detail FROM clu WHERE d>=current_date()-30 AND avg_cpu_pct<30 AND cost_usd>0 GROUP BY 1,2,3,4,5 HAVING sum(idle_cpu_cost_usd)>50\n",
+          "    UNION ALL SELECT lob,sub_division,team,workspace_name,workspace_id,'Idle warehouses','Lower auto-stop and consolidate under-used SQL warehouses', round(sum(idle_cost_usd)), concat(count(DISTINCT warehouse_id),' warehouses, avg util ',round(avg(utilization)*100,0),'%') FROM whe WHERE d>=current_date()-30 AND cost_usd>0 GROUP BY 1,2,3,4,5 HAVING sum(idle_cost_usd)>50\n",
+          "    UNION ALL SELECT lob,sub_division,team,workspace_name,workspace_id,'Failing jobs','Fix recurring job failures so you stop paying for failed runs', round(sum(failed_cost_usd)), concat(sum(failed_runs),' failed runs in 30d') FROM jobe WHERE d>=current_date()-30 GROUP BY 1,2,3,4,5 HAVING sum(failed_cost_usd)>25\n",
+          "    UNION ALL SELECT lob,sub_division,team,workspace_name,workspace_id,'Jobs on all-purpose compute','Move scheduled jobs from all-purpose to job compute (~50% cheaper DBUs)', round(sum(CASE WHEN ran_on_apc=1 THEN job_cost_usd ELSE 0 END)*0.5), concat(count(DISTINCT CASE WHEN ran_on_apc=1 THEN job_id END),' jobs on all-purpose') FROM jobe WHERE d>=current_date()-30 GROUP BY 1,2,3,4,5 HAVING sum(CASE WHEN ran_on_apc=1 THEN job_cost_usd ELSE 0 END)>50\n",
+          "    UNION ALL SELECT lob,sub_division,team,workspace_name,workspace_id,'Outdated runtime','Upgrade clusters to the latest DBR LTS for performance + cost gains', 0, concat(count(DISTINCT cluster_id),' clusters >=2 majors behind') FROM clu WHERE d>=current_date()-30 AND major_versions_behind>=2 GROUP BY 1,2,3,4,5 HAVING count(DISTINCT cluster_id)>0)"
+        ]
+      },
+      {
+        "id": "496b6603757031437f18d84e6302e62e",
+        "question": [
+          "How does spend split between serverless and classic compute over the last 90 days?"
+        ],
+        "sql": [
+          "SELECT u.product_features.is_serverless AS is_serverless, round(sum(u.usage_quantity*try_cast(lp.pricing.default AS double))) cost_usd FROM system.billing.usage u LEFT JOIN system.billing.list_prices lp ON u.sku_name=lp.sku_name AND u.usage_unit=lp.usage_unit AND u.usage_end_time>=lp.price_start_time AND (lp.price_end_time IS NULL OR u.usage_end_time<lp.price_end_time) WHERE u.usage_date>=current_date()-90 GROUP BY 1"
+        ]
+      },
+      {
+        "id": "74cda81a185c818c40912b298bcb95b8",
+        "question": [
+          "What did we spend in the last 30 days by line of business?"
+        ],
+        "sql": [
+          "WITH org AS (\n",
+          "  SELECT t.workspace_id,\n",
+          "         coalesce(w.workspace_name, concat('ws-', t.workspace_id)) AS workspace_name,\n",
+          "         coalesce(t.lob,'Untagged') AS lob, coalesce(t.sub_division,'Untagged') AS sub_division,\n",
+          "         coalesce(t.team,'Untagged') AS team, coalesce(t.environment,'Unknown') AS environment\n",
+          "  FROM (SELECT workspace_id, max(custom_tags['lob']) lob, max(custom_tags['sub_division']) sub_division,\n",
+          "               max(custom_tags['team']) team, max(custom_tags['environment']) environment\n",
+          "        FROM system.billing.usage WHERE usage_date>=current_date()-90 AND workspace_id IS NOT NULL GROUP BY workspace_id) t\n",
+          "  LEFT JOIN system.access.workspaces_latest w USING (workspace_id)\n",
+          ") SELECT o.lob, round(sum(u.usage_quantity*try_cast(lp.pricing.default AS double))) cost_usd FROM system.billing.usage u JOIN org o ON u.workspace_id=o.workspace_id LEFT JOIN system.billing.list_prices lp ON u.sku_name=lp.sku_name AND u.usage_unit=lp.usage_unit AND u.usage_end_time>=lp.price_start_time AND (lp.price_end_time IS NULL OR u.usage_end_time<lp.price_end_time) WHERE u.usage_date>=current_date()-30 GROUP BY 1 ORDER BY cost_usd DESC"
+        ]
+      },
+      {
+        "id": "d1184a5e0f2f8c4c32736412dbbd489b",
+        "question": [
+          "What is our spend by SKU over the last 90 days?"
+        ],
+        "sql": [
+          "SELECT u.sku_name, round(sum(u.usage_quantity*try_cast(lp.pricing.default AS double))) cost_usd FROM system.billing.usage u LEFT JOIN system.billing.list_prices lp ON u.sku_name=lp.sku_name AND u.usage_unit=lp.usage_unit AND u.usage_end_time>=lp.price_start_time AND (lp.price_end_time IS NULL OR u.usage_end_time<lp.price_end_time) WHERE u.usage_date>=current_date()-90 GROUP BY 1 ORDER BY cost_usd DESC LIMIT 25"
+        ]
+      },
+      {
+        "id": "e492df8b37cf8ecfc6a14793214d7d0a",
+        "question": [
+          "Which teams are wasting the most money?"
+        ],
+        "sql": [
+          "WITH org AS (\n",
+          "  SELECT t.workspace_id,\n",
+          "         coalesce(w.workspace_name, concat('ws-', t.workspace_id)) AS workspace_name,\n",
+          "         coalesce(t.lob,'Untagged') AS lob, coalesce(t.sub_division,'Untagged') AS sub_division,\n",
+          "         coalesce(t.team,'Untagged') AS team, coalesce(t.environment,'Unknown') AS environment\n",
+          "  FROM (SELECT workspace_id, max(custom_tags['lob']) lob, max(custom_tags['sub_division']) sub_division,\n",
+          "               max(custom_tags['team']) team, max(custom_tags['environment']) environment\n",
+          "        FROM system.billing.usage WHERE usage_date>=current_date()-90 AND workspace_id IS NOT NULL GROUP BY workspace_id) t\n",
+          "  LEFT JOIN system.access.workspaces_latest w USING (workspace_id)\n",
+          "),\n",
+          "priced AS (\n",
+          "  SELECT u.usage_date, date_trunc('MONTH',u.usage_date) AS usage_month, u.workspace_id,\n",
+          "    o.workspace_name, o.lob, o.sub_division, o.team, o.environment, u.sku_name, u.billing_origin_product,\n",
+          "    CASE WHEN u.billing_origin_product='ALL_PURPOSE' THEN 'All-Purpose Compute'\n",
+          "         WHEN u.billing_origin_product='JOBS' THEN 'Job Compute'\n",
+          "         WHEN u.billing_origin_product='DLT' THEN 'Lakeflow / DLT'\n",
+          "         WHEN u.billing_origin_product='SQL' THEN 'SQL Warehouse'\n",
+          "         WHEN u.billing_origin_product IN ('MODEL_SERVING','AI_GATEWAY','AI_FUNCTIONS','AI_RUNTIME','VECTOR_SEARCH','AGENT_BRICKS','AGENT_EVALUATION','SUPERVISOR_AGENT') THEN 'AI / ML'\n",
+          "         WHEN u.billing_origin_product='INTERACTIVE' THEN 'Serverless Interactive'\n",
+          "         WHEN u.billing_origin_product IN ('LAKEBASE','DATABASE','ONLINE_TABLES') THEN 'Lakebase / OLTP'\n",
+          "         ELSE 'Platform / Other' END AS compute_type,\n",
+          "    u.usage_metadata.cluster_id AS cluster_id, u.usage_metadata.job_id AS job_id, u.usage_metadata.warehouse_id AS warehouse_id,\n",
+          "    u.product_features.is_serverless AS is_serverless, u.usage_quantity,\n",
+          "    u.usage_quantity * try_cast(lp.pricing.default AS double) AS cost_usd\n",
+          "  FROM system.billing.usage u\n",
+          "  JOIN org o ON u.workspace_id=o.workspace_id\n",
+          "  LEFT JOIN system.billing.list_prices lp ON u.sku_name=lp.sku_name AND u.usage_unit=lp.usage_unit\n",
+          "       AND u.usage_end_time>=lp.price_start_time AND (lp.price_end_time IS NULL OR u.usage_end_time<lp.price_end_time)\n",
+          "  WHERE u.workspace_id IS NOT NULL\n",
+          "),\n",
+          "cl_latest AS (SELECT * FROM (SELECT *, row_number() OVER (PARTITION BY workspace_id,cluster_id ORDER BY change_time DESC) rn FROM system.compute.clusters) WHERE rn=1),\n",
+          "node_util AS (SELECT workspace_id,cluster_id,date(start_time) d, avg(cpu_user_percent+cpu_system_percent) avg_cpu_pct, avg(mem_used_percent) avg_mem_pct, max(mem_used_percent) peak_mem_pct, count(*) node_minutes FROM system.compute.node_timeline WHERE start_time>=current_date()-INTERVAL 65 DAYS GROUP BY 1,2,3),\n",
+          "clu_cost AS (SELECT workspace_id,cluster_id,usage_date d, sum(cost_usd) cost_usd FROM priced WHERE cluster_id IS NOT NULL AND usage_date>=current_date()-INTERVAL 65 DAYS GROUP BY 1,2,3),\n",
+          "clu AS (\n",
+          "  SELECT o.lob,o.sub_division,o.team,o.workspace_name,o.environment,\n",
+          "    coalesce(nu.workspace_id,cc.workspace_id) workspace_id, coalesce(nu.cluster_id,cc.cluster_id) cluster_id,\n",
+          "    cl.cluster_name, cl.cluster_source, coalesce(nu.d,cc.d) d,\n",
+          "    nu.avg_cpu_pct, nu.avg_mem_pct, nu.peak_mem_pct, nu.node_minutes, coalesce(cc.cost_usd,0) cost_usd, cl.dbr_version,\n",
+          "    greatest(0, 17 - try_cast(split(regexp_extract(cl.dbr_version,'(\\\\d+\\\\.\\\\d+)',1),'\\\\.')[0] AS INT)) major_versions_behind,\n",
+          "    (cl.aws_attributes.availability LIKE 'SPOT%') is_spot, cl.auto_termination_minutes, cl.min_autoscale_workers, cl.max_autoscale_workers,\n",
+          "    CASE WHEN nu.avg_cpu_pct IS NOT NULL THEN coalesce(cc.cost_usd,0)*(1-least(nu.avg_cpu_pct,50)/50.0) ELSE 0 END idle_cpu_cost_usd\n",
+          "  FROM node_util nu FULL OUTER JOIN clu_cost cc USING (workspace_id,cluster_id,d)\n",
+          "  LEFT JOIN cl_latest cl ON cl.workspace_id=coalesce(nu.workspace_id,cc.workspace_id) AND cl.cluster_id=coalesce(nu.cluster_id,cc.cluster_id)\n",
+          "  LEFT JOIN org o ON o.workspace_id=coalesce(nu.workspace_id,cc.workspace_id)\n",
+          "),\n",
+          "wh_latest AS (SELECT * FROM (SELECT warehouse_id,workspace_id,warehouse_name,warehouse_type,warehouse_size,min_clusters,max_clusters,auto_stop_minutes, row_number() OVER (PARTITION BY warehouse_id ORDER BY change_time DESC) rn FROM system.compute.warehouses) WHERE rn=1),\n",
+          "wh_ev AS (SELECT warehouse_id,date(event_time) d, sum(CASE WHEN event_type NOT IN ('STOPPED','STOPPING') THEN timestampdiff(SECOND,event_time,next_time) ELSE 0 END) running_seconds FROM (SELECT warehouse_id,event_type,event_time, lead(event_time) OVER (PARTITION BY warehouse_id ORDER BY event_time) next_time FROM system.compute.warehouse_events WHERE event_time>=current_date()-INTERVAL 65 DAYS) WHERE next_time IS NOT NULL AND date(event_time)=date(next_time) GROUP BY 1,2),\n",
+          "wh_q AS (SELECT compute.warehouse_id warehouse_id,date(start_time) d, count(*) query_count, sum(execution_duration_ms)/1000.0 exec_seconds, sum(spilled_local_bytes)/1e9 spilled_gb, sum(CASE WHEN execution_status='FAILED' THEN 1 ELSE 0 END) failed_queries FROM system.query.history WHERE start_time>=current_date()-INTERVAL 65 DAYS AND compute.warehouse_id IS NOT NULL GROUP BY 1,2),\n",
+          "wh_cost AS (SELECT warehouse_id,usage_date d, sum(cost_usd) cost_usd FROM priced WHERE warehouse_id IS NOT NULL AND usage_date>=current_date()-INTERVAL 65 DAYS GROUP BY 1,2),\n",
+          "whe AS (\n",
+          "  SELECT o.lob,o.sub_division,o.team,o.workspace_name,o.environment, wl.workspace_id, c.warehouse_id, wl.warehouse_name, wl.warehouse_type, wl.warehouse_size,\n",
+          "    wl.auto_stop_minutes, (coalesce(wl.auto_stop_minutes,0)=0) never_auto_stops, c.d, coalesce(c.cost_usd,0) cost_usd,\n",
+          "    e.running_seconds, q.query_count, q.exec_seconds, coalesce(q.spilled_gb,0) spilled_gb, coalesce(q.failed_queries,0) failed_queries,\n",
+          "    least(1.0, coalesce(q.exec_seconds,0)/nullif(e.running_seconds,0)) utilization,\n",
+          "    coalesce(c.cost_usd,0)*(1-least(1.0, coalesce(q.exec_seconds,0)/nullif(e.running_seconds,0))) idle_cost_usd\n",
+          "  FROM wh_cost c LEFT JOIN wh_ev e ON e.warehouse_id=c.warehouse_id AND e.d=c.d\n",
+          "  LEFT JOIN wh_q q ON q.warehouse_id=c.warehouse_id AND q.d=c.d\n",
+          "  LEFT JOIN wh_latest wl ON wl.warehouse_id=c.warehouse_id\n",
+          "  LEFT JOIN org o ON o.workspace_id=wl.workspace_id\n",
+          "),\n",
+          "job_cl AS (SELECT workspace_id,cluster_id,cluster_source FROM (SELECT workspace_id,cluster_id,cluster_source, row_number() OVER (PARTITION BY workspace_id,cluster_id ORDER BY change_time DESC) rn FROM system.compute.clusters) WHERE rn=1),\n",
+          "job_runs AS (SELECT workspace_id,job_id,run_id,date(period_start_time) d,result_state,compute_ids FROM system.lakeflow.job_run_timeline WHERE period_start_time>=current_date()-INTERVAL 65 DAYS),\n",
+          "job_apc AS (SELECT r.workspace_id,r.job_id,r.d,r.run_id, max(CASE WHEN coalesce(c.cluster_source,'') NOT IN ('JOB','') THEN 1 ELSE 0 END) used_apc, max(CASE WHEN r.result_state IN ('FAILED','ERROR','TIMED_OUT') THEN 1 ELSE 0 END) failed FROM job_runs r LEFT JOIN LATERAL explode(r.compute_ids) AS t(cid) LEFT JOIN job_cl c ON c.workspace_id=r.workspace_id AND c.cluster_id=t.cid GROUP BY 1,2,3,4),\n",
+          "job_day AS (SELECT workspace_id,job_id,d, count(*) runs, sum(failed) failed_runs, max(used_apc) ran_on_apc FROM job_apc GROUP BY 1,2,3),\n",
+          "job_cost AS (SELECT workspace_id,job_id,usage_date d, sum(cost_usd) job_cost_usd FROM priced WHERE job_id IS NOT NULL AND usage_date>=current_date()-INTERVAL 65 DAYS GROUP BY 1,2,3),\n",
+          "jobe AS (\n",
+          "  SELECT o.lob,o.sub_division,o.team,o.workspace_name,o.environment, coalesce(jd.workspace_id,jc.workspace_id) workspace_id, coalesce(jd.job_id,jc.job_id) job_id, coalesce(jd.d,jc.d) d,\n",
+          "    coalesce(jd.runs,0) runs, coalesce(jd.failed_runs,0) failed_runs, coalesce(jd.ran_on_apc,0) ran_on_apc, coalesce(jc.job_cost_usd,0) job_cost_usd,\n",
+          "    CASE WHEN coalesce(jd.failed_runs,0)>0 THEN coalesce(jc.job_cost_usd,0) ELSE 0 END failed_cost_usd\n",
+          "  FROM job_day jd FULL OUTER JOIN job_cost jc USING (workspace_id,job_id,d)\n",
+          "  LEFT JOIN org o ON o.workspace_id=coalesce(jd.workspace_id,jc.workspace_id)\n",
+          "),\n",
+          "sc_spend AS (SELECT workspace_id, usage_date d, sum(cost_usd) spend FROM priced WHERE usage_date>=current_date()-INTERVAL 60 DAYS GROUP BY 1,2),\n",
+          "sc_ic AS (SELECT workspace_id,d,sum(idle_cpu_cost_usd) v FROM clu WHERE d>=current_date()-INTERVAL 60 DAYS GROUP BY 1,2),\n",
+          "sc_wi AS (SELECT workspace_id,d,sum(idle_cost_usd) v FROM whe WHERE d>=current_date()-INTERVAL 60 DAYS GROUP BY 1,2),\n",
+          "sc_jf AS (SELECT workspace_id,d,sum(failed_cost_usd) failed_v, sum(CASE WHEN ran_on_apc=1 THEN job_cost_usd ELSE 0 END) apc_v FROM jobe WHERE d>=current_date()-INTERVAL 60 DAYS GROUP BY 1,2),\n",
+          "sc_daily AS (SELECT coalesce(s.workspace_id,ic.workspace_id,wi.workspace_id,j.workspace_id) workspace_id, coalesce(s.d,ic.d,wi.d,j.d) d, coalesce(s.spend,0) spend, coalesce(ic.v,0) idle_cpu_cost, coalesce(wi.v,0) wh_idle_cost, coalesce(j.failed_v,0) failed_cost, coalesce(j.apc_v,0) jobs_on_apc_cost FROM sc_spend s FULL OUTER JOIN sc_ic ic USING(workspace_id,d) FULL OUTER JOIN sc_wi wi USING(workspace_id,d) FULL OUTER JOIN sc_jf j USING(workspace_id,d)),\n",
+          "sc_agg AS (SELECT workspace_id, sum(CASE WHEN d>=current_date()-30 THEN spend END) spend_cur, sum(CASE WHEN d<current_date()-30 THEN spend END) spend_prev, sum(CASE WHEN d>=current_date()-30 THEN idle_cpu_cost+wh_idle_cost+failed_cost END) waste_cur, sum(CASE WHEN d<current_date()-30 THEN idle_cpu_cost+wh_idle_cost+failed_cost END) waste_prev, sum(CASE WHEN d>=current_date()-30 THEN idle_cpu_cost END) idle_cpu_cost, sum(CASE WHEN d>=current_date()-30 THEN wh_idle_cost END) wh_idle_cost, sum(CASE WHEN d>=current_date()-30 THEN failed_cost END) failed_cost, sum(CASE WHEN d>=current_date()-30 THEN jobs_on_apc_cost END) jobs_on_apc_cost FROM sc_daily GROUP BY 1),\n",
+          "sc_scored AS (SELECT o.lob,o.sub_division,o.team,o.workspace_name,a.workspace_id, round(coalesce(a.spend_cur,0)) total_spend, round(coalesce(a.idle_cpu_cost,0)) idle_cpu_cost, round(coalesce(a.wh_idle_cost,0)) wh_idle_cost, round(coalesce(a.failed_cost,0)) failed_cost, round(coalesce(a.jobs_on_apc_cost,0)) jobs_on_apc_cost, round(coalesce(a.waste_cur,0)) total_waste, round(100*coalesce(a.waste_cur,0)/nullif(a.spend_cur,0),1) waste_pct, round(100*(1-least(1,coalesce(a.waste_cur,0)/nullif(a.spend_cur,0))),1) efficiency_score, round(100*(1-least(1,coalesce(a.waste_prev,0)/nullif(a.spend_prev,0))),1) prior_efficiency_score FROM sc_agg a LEFT JOIN org o ON o.workspace_id=a.workspace_id WHERE coalesce(a.spend_cur,0)>0),\n",
+          "scard AS (SELECT *, round(efficiency_score-prior_efficiency_score,1) score_delta, rank() OVER (ORDER BY efficiency_score DESC) rank_efficiency, rank() OVER (ORDER BY total_waste DESC) rank_waste, rank() OVER (PARTITION BY lob ORDER BY efficiency_score DESC) rank_in_lob FROM sc_scored)\n",
+          "SELECT lob, sub_division, team, workspace_name, total_spend, total_waste, waste_pct, efficiency_score, score_delta, idle_cpu_cost, wh_idle_cost, failed_cost, jobs_on_apc_cost, rank_efficiency, rank_waste FROM scard"
+        ]
+      },
+      {
+        "id": "f513adbf60c7aa126000547794b15899",
+        "question": [
+          "Show the daily spend trend for the last 90 days by compute type."
+        ],
+        "sql": [
+          "WITH org AS (\n",
+          "  SELECT t.workspace_id,\n",
+          "         coalesce(w.workspace_name, concat('ws-', t.workspace_id)) AS workspace_name,\n",
+          "         coalesce(t.lob,'Untagged') AS lob, coalesce(t.sub_division,'Untagged') AS sub_division,\n",
+          "         coalesce(t.team,'Untagged') AS team, coalesce(t.environment,'Unknown') AS environment\n",
+          "  FROM (SELECT workspace_id, max(custom_tags['lob']) lob, max(custom_tags['sub_division']) sub_division,\n",
+          "               max(custom_tags['team']) team, max(custom_tags['environment']) environment\n",
+          "        FROM system.billing.usage WHERE usage_date>=current_date()-90 AND workspace_id IS NOT NULL GROUP BY workspace_id) t\n",
+          "  LEFT JOIN system.access.workspaces_latest w USING (workspace_id)\n",
+          ") SELECT u.usage_date, CASE WHEN u.billing_origin_product='ALL_PURPOSE' THEN 'All-Purpose' WHEN u.billing_origin_product='JOBS' THEN 'Jobs' WHEN u.billing_origin_product='SQL' THEN 'SQL' WHEN u.billing_origin_product='DLT' THEN 'DLT' ELSE 'Other' END compute_type, round(sum(u.usage_quantity*try_cast(lp.pricing.default AS double))) cost_usd FROM system.billing.usage u JOIN org o ON u.workspace_id=o.workspace_id LEFT JOIN system.billing.list_prices lp ON u.sku_name=lp.sku_name AND u.usage_unit=lp.usage_unit AND u.usage_end_time>=lp.price_start_time AND (lp.price_end_time IS NULL OR u.usage_end_time<lp.price_end_time) WHERE u.usage_date>=current_date()-90 GROUP BY 1,2 ORDER BY 1"
+        ]
+      }
+    ]
+  }
+}
