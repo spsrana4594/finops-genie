@@ -68,7 +68,7 @@ dollarized, across three levers:
 ## 🚀 Setup
 
 ```bash
-git clone https://github.com/<you>/finops-genie.git && cd finops-genie
+git clone https://github.com/spsrana4594/finops-genie.git && cd finops-genie
 ```
 
 **1️⃣ Dashboard** — in the workspace: **Dashboards → ⋮ → Import dashboard from file →**
