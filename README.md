@@ -13,6 +13,26 @@ cost-optimization recommendations** — an AI/BI dashboard + a curated Genie spa
 
 ---
 
+## 🎤 The talk
+
+This repo accompanies the **Databricks Data & AI Summit 2026** session titled
+**["Databricks FinOps Genie: Cost Observability Meets Optimization Insights"](https://www.databricks.com/dataaisummit/session/databricks-finops-genie-cost-observability-meets-optimization-insights)**
+— the story of taking a 1,000+ workspace bank *from cost observability to action*.
+
+- 🎥 **Session & recording:** [watch / details on the DAIS site](https://www.databricks.com/dataaisummit/session/databricks-finops-genie-cost-observability-meets-optimization-insights) *(free DAIS registration required to view)*
+- 📊 **Talk deck:** [`deck/FinOps-Genie-DAIS2026.pptx`](deck/FinOps-Genie-DAIS2026.pptx)
+
+### 🌩️ Get the *full* cost picture (Databricks + cloud infrastructure)
+
+FinOps Genie covers your **Databricks (DBU)** spend from system tables — it intentionally does **not**
+include the underlying **cloud-infrastructure** costs (EC2/VMs, storage, egress). To unify both, pair
+it with the Databricks solution *Unifying Databricks and cloud infrastructure costs*:
+
+- 📝 Blog: [Getting the full picture](https://www.databricks.com/blog/getting-full-picture-unifying-databricks-and-cloud-infrastructure-costs)
+- 💻 Companion repo: [`databricks-solutions/cloud-infra-costs`](https://github.com/databricks-solutions/cloud-infra-costs) — solution architectures for [**AWS**](https://github.com/databricks-solutions/cloud-infra-costs/tree/main/aws) and [**Azure**](https://github.com/databricks-solutions/cloud-infra-costs/tree/main/azure)
+
+---
+
 ## ✨ What you get
 
 | | |
@@ -21,7 +41,7 @@ cost-optimization recommendations** — an AI/BI dashboard + a curated Genie spa
 | 🧞 **FinOps Genie** | Plain-English Q&A: *"What should the X team fix first?"*, *"Biggest savings by lever?"*, *"Which unused tables can we de-commission?"* |
 | 📚 **Knowledge Assistant** (optional) | Blends best-practice how-to + your policy with the live data |
 
-**🎯 The moat — the To-Do / Optimization tab:** every recommendation, **tagged to the owning team**,
+**🎯 The differentiator — the To-Do / Optimization tab:** every recommendation, **tagged to the owning team**,
 dollarized, across three levers:
 
 - 🔴 **Reduce waste** — idle clusters & warehouses, failing jobs, unused/zombie warehouses, over-frequent jobs, de-commission unused tables
@@ -117,13 +137,6 @@ knowledge/                            10 best-practice guides + policy template 
 deck/FinOps-Genie-DAIS2026.pptx       the DAIS 2026 talk deck (the story behind this repo)
 README.md · LICENSE · .gitignore
 ```
-
-## 🎤 The talk & going further
-
-- 📊 **DAIS 2026 talk deck:** [`deck/FinOps-Genie-DAIS2026.pptx`](deck/FinOps-Genie-DAIS2026.pptx) — the full story behind this repo (from cost *observability* to *action* at a 1,000+ workspace bank).
-- 🌩️ **Get the _full_ cost picture (Databricks + cloud infrastructure).** FinOps Genie covers your **Databricks (DBU)** spend from system tables — it intentionally does **not** include the underlying **cloud-infrastructure** costs (EC2/VMs, storage, egress). To unify both, pair it with the Databricks solution *Unifying Databricks and cloud infrastructure costs*:
-  - 📝 Blog: [Getting the full picture](https://www.databricks.com/blog/getting-full-picture-unifying-databricks-and-cloud-infrastructure-costs)
-  - 💻 Companion repo: [`databricks-solutions/cloud-infra-costs`](https://github.com/databricks-solutions/cloud-infra-costs) — solution architectures for [**AWS**](https://github.com/databricks-solutions/cloud-infra-costs/tree/main/aws) and [**Azure**](https://github.com/databricks-solutions/cloud-infra-costs/tree/main/azure)
 
 ## 🐘 Advanced (very large accounts)
 
